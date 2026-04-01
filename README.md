@@ -2,7 +2,7 @@
 
 Web-based AI agent workspace following `SPEC.md`.
 
-Current progress: Milestone 5 settings and run history is implemented.
+Current state: MVP milestone 1-5 is implemented and can be demoed locally.
 
 ## Stack
 
@@ -10,6 +10,19 @@ Current progress: Milestone 5 settings and run history is implemented.
 - Tailwind CSS + shadcn/ui base setup
 - Prisma + SQLite
 - OpenAI Responses API (single agent)
+
+## MVP Capabilities
+
+- Multi-session chat with history persistence
+- Agent runtime via OpenAI Responses API
+- Tool call logs in chat and run history
+- Knowledge import and retrieval (`.txt` / `.md`)
+- Run history list + run detail + tool-call association
+- Settings page:
+  - model config
+  - system prompt config
+  - tool enable/disable switches
+  - changes apply to new requests
 
 ## Quick Start
 
@@ -25,13 +38,18 @@ npm install
 copy .env.example .env
 ```
 
-3. Initialize database
+3. Set required env values
+
+- `OPENAI_API_KEY` is required for real assistant replies.
+- If `OPENAI_API_KEY` is missing, chat requests will fail with a visible error (`OPENAI_API_KEY is not configured.`).
+
+4. Initialize database
 
 ```bash
 npx prisma db push
 ```
 
-4. Run dev server
+5. Start app
 
 ```bash
 npm run dev
@@ -39,31 +57,26 @@ npm run dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-## Milestone 5 Capabilities
+## Environment Variables
 
-- Session-based multi-turn chat with persistence
-- Single-agent response generation through OpenAI Responses API
-- Tool-call visualization in chat run status panel
-- Knowledge management in `/knowledge`:
-  - upload `.txt` / `.md`
-  - list knowledge sources
-  - delete a source
-  - run retrieval test
-- Run history workspace in `/runs`:
-  - historical run list
-  - run detail panel
-  - run and tool call association
-  - visible failure states
-- Settings workspace in `/settings`:
-  - model configuration
-  - system prompt configuration
-  - tool enable/disable switches
-  - changes stored in `AppSetting` and applied to new chat requests
+| Name | Required | Default | Description |
+| --- | --- | --- | --- |
+| `OPENAI_API_KEY` | Yes (for chat replies) | - | OpenAI API key for Responses API |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | Default model fallback when settings not yet saved |
+| `OPENAI_SYSTEM_PROMPT` | No | built-in prompt | Default system prompt fallback when settings not yet saved |
+| `DATABASE_URL` | Yes | `file:./dev.db` | SQLite database path |
 
-## Validation Commands
+## Validation
 
 ```bash
 npm run lint
 npm run test
 npm run build
 ```
+
+## Smoke Check Flow
+
+1. Open `/settings`, save model/prompt/tool switches
+2. Open `/chat`, create session, send message
+3. Open `/knowledge`, upload a `.txt` file and run retrieval test
+4. Open `/runs`, verify run details and tool-call logs
