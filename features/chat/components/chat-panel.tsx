@@ -4,16 +4,18 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { ChatMessageItem } from "@/features/chat/types/chat";
+import type { ChatMessageItem, RunItem } from "@/features/chat/types/chat";
 
 type ChatPanelProps = {
   sessionId: string;
   initialMessages: ChatMessageItem[];
+  initialRuns: RunItem[];
 };
 
 type SendPayload = {
   userMessage?: ChatMessageItem;
   assistantMessage?: ChatMessageItem;
+  run?: RunItem;
   error?: string;
 };
 
@@ -22,9 +24,15 @@ function formatMessageTime(value: string): string {
   return date.toLocaleTimeString();
 }
 
-export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
+function upsertRun(runs: RunItem[], nextRun: RunItem): RunItem[] {
+  const without = runs.filter((item) => item.id !== nextRun.id && !item.id.startsWith("local-pending-"));
+  return [nextRun, ...without].slice(0, 10);
+}
+
+export function ChatPanel({ sessionId, initialMessages, initialRuns }: ChatPanelProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessageItem[]>(initialMessages);
+  const [runs, setRuns] = useState<RunItem[]>(initialRuns);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +51,21 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
 
     setIsSending(true);
     setError(null);
+
+    const pendingRunId = `local-pending-${Date.now()}`;
+    setRuns((prev) => [
+      {
+        id: pendingRunId,
+        sessionId,
+        userMessageId: null,
+        status: "running",
+        startedAt: new Date().toISOString(),
+        endedAt: null,
+        errorMessage: null,
+        toolCalls: [],
+      },
+      ...prev,
+    ]);
 
     try {
       const response = await fetch(`/api/chat/sessions/${sessionId}/messages`, {
@@ -65,6 +88,12 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
           });
         }
 
+        if (payload.run) {
+          setRuns((prev) => upsertRun(prev.filter((item) => item.id !== pendingRunId), payload.run as RunItem));
+        } else {
+          setRuns((prev) => prev.filter((item) => item.id !== pendingRunId));
+        }
+
         throw new Error(payload.error ?? "Failed to send message.");
       }
 
@@ -73,6 +102,11 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
       }
 
       setMessages((prev) => [...prev, payload.userMessage!, payload.assistantMessage!]);
+      if (payload.run) {
+        setRuns((prev) => upsertRun(prev.filter((item) => item.id !== pendingRunId), payload.run as RunItem));
+      } else {
+        setRuns((prev) => prev.filter((item) => item.id !== pendingRunId));
+      }
       setInput("");
       router.refresh();
     } catch (err) {
@@ -87,7 +121,7 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
     <Card className="flex min-h-[520px] flex-col p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold">Conversation</h2>
-        <span className="text-xs text-zinc-500">Session ID: {sessionId}</span>
+        <span className="text-xs text-zinc-500">Recent runs: {runs.length}</span>
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto rounded-md border border-zinc-200 bg-zinc-50 p-3">
@@ -106,7 +140,9 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
               <p>{message.content}</p>
               <p
                 className={
-                  message.role === "user" ? "mt-1 text-right text-xs text-zinc-300" : "mt-1 text-right text-xs text-zinc-500"
+                  message.role === "user"
+                    ? "mt-1 text-right text-xs text-zinc-300"
+                    : "mt-1 text-right text-xs text-zinc-500"
                 }
               >
                 {message.role} · {formatMessageTime(message.createdAt)}
@@ -129,7 +165,9 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
           {error ? (
             <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">{error}</p>
           ) : (
-            <span className="text-xs text-zinc-500">Model response will be saved into this session.</span>
+            <span className="text-xs text-zinc-500">
+              Agent run is tracked and tool traces appear in the right panel.
+            </span>
           )}
           <Button type="submit" disabled={isSending}>
             {isSending ? "Sending..." : "Send"}

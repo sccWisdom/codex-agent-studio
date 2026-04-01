@@ -5,6 +5,8 @@ import {
   type SessionSummary,
   type SessionWithMessages,
   type StoredMessage,
+  type StoredRun,
+  type StoredToolCall,
 } from "@/lib/chat/chat-service";
 
 function mapSessionSummary(input: {
@@ -32,6 +34,59 @@ function mapMessage(input: {
     role: input.role,
     content: input.content,
     createdAt: input.createdAt,
+  };
+}
+
+function mapToolCall(input: {
+  id: string;
+  runId: string;
+  toolName: string;
+  inputSummary: string;
+  outputSummary: string | null;
+  status: string;
+  startedAt: Date;
+  endedAt: Date | null;
+}): StoredToolCall {
+  return {
+    id: input.id,
+    runId: input.runId,
+    toolName: input.toolName,
+    inputSummary: input.inputSummary,
+    outputSummary: input.outputSummary,
+    status: input.status as StoredToolCall["status"],
+    startedAt: input.startedAt,
+    endedAt: input.endedAt,
+  };
+}
+
+function mapRun(input: {
+  id: string;
+  sessionId: string;
+  userMessageId: string | null;
+  status: string;
+  startedAt: Date;
+  endedAt: Date | null;
+  errorMessage: string | null;
+  toolCalls: {
+    id: string;
+    runId: string;
+    toolName: string;
+    inputSummary: string;
+    outputSummary: string | null;
+    status: string;
+    startedAt: Date;
+    endedAt: Date | null;
+  }[];
+}): StoredRun {
+  return {
+    id: input.id,
+    sessionId: input.sessionId,
+    userMessageId: input.userMessageId,
+    status: input.status as StoredRun["status"],
+    startedAt: input.startedAt,
+    endedAt: input.endedAt,
+    errorMessage: input.errorMessage,
+    toolCalls: input.toolCalls.map(mapToolCall),
   };
 }
 
@@ -113,7 +168,6 @@ export class PrismaChatStore implements ChatStore {
       },
     });
 
-    // Keep session ordering by the latest chat activity.
     await db.session.update({
       where: {
         id: input.sessionId,
@@ -141,5 +195,126 @@ export class PrismaChatStore implements ChatStore {
         id: true,
       },
     });
+  }
+
+  async createRun(input: { sessionId: string; userMessageId: string }) {
+    const run = await db.run.create({
+      data: {
+        sessionId: input.sessionId,
+        userMessageId: input.userMessageId,
+        status: "running",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return run;
+  }
+
+  async finishRun(
+    runId: string,
+    input: { status: "success" | "failed"; errorMessage?: string | null },
+  ) {
+    await db.run.update({
+      where: {
+        id: runId,
+      },
+      data: {
+        status: input.status,
+        errorMessage: input.errorMessage ?? null,
+        endedAt: new Date(),
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
+
+  async createToolCall(input: {
+    runId: string;
+    toolName: string;
+    inputSummary: string;
+    startedAt?: Date;
+  }) {
+    const toolCall = await db.toolCall.create({
+      data: {
+        runId: input.runId,
+        toolName: input.toolName,
+        inputSummary: input.inputSummary,
+        status: "running",
+        startedAt: input.startedAt ?? new Date(),
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return toolCall;
+  }
+
+  async finishToolCall(
+    toolCallId: string,
+    input: {
+      status: "success" | "failed";
+      outputSummary: string;
+      endedAt?: Date;
+    },
+  ) {
+    await db.toolCall.update({
+      where: {
+        id: toolCallId,
+      },
+      data: {
+        status: input.status,
+        outputSummary: input.outputSummary,
+        endedAt: input.endedAt ?? new Date(),
+      },
+      select: {
+        id: true,
+      },
+    });
+  }
+
+  async listRunsBySession(sessionId: string, limit = 20): Promise<StoredRun[]> {
+    const runs = await db.run.findMany({
+      where: {
+        sessionId,
+      },
+      include: {
+        toolCalls: {
+          orderBy: {
+            startedAt: "asc",
+          },
+        },
+      },
+      orderBy: {
+        startedAt: "desc",
+      },
+      take: limit,
+    });
+
+    return runs.map(mapRun);
+  }
+
+  async getRunById(runId: string): Promise<StoredRun | null> {
+    const run = await db.run.findUnique({
+      where: {
+        id: runId,
+      },
+      include: {
+        toolCalls: {
+          orderBy: {
+            startedAt: "asc",
+          },
+        },
+      },
+    });
+
+    if (!run) {
+      return null;
+    }
+
+    return mapRun(run);
   }
 }

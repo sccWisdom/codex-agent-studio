@@ -11,3 +11,25 @@ export type ChatMessageItem = {
   content: string;
   createdAt: string;
 };
+
+export type ToolCallItem = {
+  id: string;
+  runId: string;
+  toolName: string;
+  inputSummary: string;
+  outputSummary: string | null;
+  status: "running" | "success" | "failed";
+  startedAt: string;
+  endedAt: string | null;
+};
+
+export type RunItem = {
+  id: string;
+  sessionId: string;
+  userMessageId: string | null;
+  status: "running" | "success" | "failed";
+  startedAt: string;
+  endedAt: string | null;
+  errorMessage: string | null;
+  toolCalls: ToolCallItem[];
+};

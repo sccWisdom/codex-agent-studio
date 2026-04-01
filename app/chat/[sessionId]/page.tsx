@@ -4,7 +4,12 @@ import { Card } from "@/components/ui/card";
 import { ChatPanel } from "@/features/chat/components/chat-panel";
 import { ChatStatusPanel } from "@/features/chat/components/chat-status-panel";
 import { SessionList } from "@/features/chat/components/session-list";
-import type { ChatMessageItem, SessionListItem } from "@/features/chat/types/chat";
+import type {
+  ChatMessageItem,
+  RunItem,
+  SessionListItem,
+  ToolCallItem,
+} from "@/features/chat/types/chat";
 import { chatStore } from "@/lib/chat/chat-runtime";
 
 type ChatSessionPageProps = {
@@ -39,13 +44,73 @@ function serializeMessages(
   }));
 }
 
+function serializeToolCalls(
+  toolCalls: {
+    id: string;
+    runId: string;
+    toolName: string;
+    inputSummary: string;
+    outputSummary: string | null;
+    status: "running" | "success" | "failed";
+    startedAt: Date;
+    endedAt: Date | null;
+  }[],
+): ToolCallItem[] {
+  return toolCalls.map((item) => ({
+    id: item.id,
+    runId: item.runId,
+    toolName: item.toolName,
+    inputSummary: item.inputSummary,
+    outputSummary: item.outputSummary,
+    status: item.status,
+    startedAt: item.startedAt.toISOString(),
+    endedAt: item.endedAt ? item.endedAt.toISOString() : null,
+  }));
+}
+
+function serializeRuns(
+  runs: {
+    id: string;
+    sessionId: string;
+    userMessageId: string | null;
+    status: "running" | "success" | "failed";
+    startedAt: Date;
+    endedAt: Date | null;
+    errorMessage: string | null;
+    toolCalls: {
+      id: string;
+      runId: string;
+      toolName: string;
+      inputSummary: string;
+      outputSummary: string | null;
+      status: "running" | "success" | "failed";
+      startedAt: Date;
+      endedAt: Date | null;
+    }[];
+  }[],
+): RunItem[] {
+  return runs.map((run) => ({
+    id: run.id,
+    sessionId: run.sessionId,
+    userMessageId: run.userMessageId,
+    status: run.status,
+    startedAt: run.startedAt.toISOString(),
+    endedAt: run.endedAt ? run.endedAt.toISOString() : null,
+    errorMessage: run.errorMessage,
+    toolCalls: serializeToolCalls(run.toolCalls),
+  }));
+}
+
 export default async function ChatSessionPage({ params }: ChatSessionPageProps) {
   const { sessionId } = await params;
 
-  const [sessions, session] = await Promise.all([
+  const [sessions, session, runs] = await Promise.all([
     chatStore.listSessions(),
     chatStore.getSessionWithMessages(sessionId),
+    chatStore.listRunsBySession(sessionId, 10),
   ]);
+
+  const serializedRuns = serializeRuns(runs);
 
   return (
     <AppShell>
@@ -62,6 +127,7 @@ export default async function ChatSessionPage({ params }: ChatSessionPageProps) 
             <ChatPanel
               sessionId={session.id}
               initialMessages={serializeMessages(session.messages)}
+              initialRuns={serializedRuns}
             />
           ) : (
             <Card className="flex min-h-[520px] items-center justify-center p-6">
@@ -74,7 +140,7 @@ export default async function ChatSessionPage({ params }: ChatSessionPageProps) 
             </Card>
           )}
 
-          <ChatStatusPanel status={session ? "ready" : "idle"} />
+          <ChatStatusPanel status={session ? "ready" : "idle"} runs={serializedRuns} />
         </div>
       </div>
     </AppShell>

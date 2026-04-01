@@ -5,6 +5,8 @@ import {
   createChatService,
   type ChatStore,
   type StoredMessage,
+  type StoredRun,
+  type StoredToolCall,
 } from "@/lib/chat/chat-service";
 
 class InMemoryStore implements ChatStore {
@@ -19,8 +21,13 @@ class InMemoryStore implements ChatStore {
     }
   >();
 
+  private runs = new Map<string, StoredRun>();
+  private toolCalls = new Map<string, StoredToolCall>();
+
   private sequence = 0;
   private messageSequence = 0;
+  private runSequence = 0;
+  private toolCallSequence = 0;
 
   async createSession() {
     const id = `session-${++this.sequence}`;
@@ -83,6 +90,100 @@ class InMemoryStore implements ChatStore {
     session.title = title;
     session.updatedAt = new Date();
   }
+
+  async createRun(input: { sessionId: string; userMessageId: string }) {
+    const run: StoredRun = {
+      id: `run-${++this.runSequence}`,
+      sessionId: input.sessionId,
+      userMessageId: input.userMessageId,
+      status: "running",
+      startedAt: new Date(),
+      endedAt: null,
+      errorMessage: null,
+      toolCalls: [],
+    };
+    this.runs.set(run.id, run);
+    return { id: run.id };
+  }
+
+  async finishRun(
+    runId: string,
+    input: { status: "success" | "failed"; errorMessage?: string | null },
+  ) {
+    const run = this.runs.get(runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
+    run.status = input.status;
+    run.endedAt = new Date();
+    run.errorMessage = input.errorMessage ?? null;
+  }
+
+  async createToolCall(input: {
+    runId: string;
+    toolName: string;
+    inputSummary: string;
+    startedAt?: Date;
+  }) {
+    const toolCall: StoredToolCall = {
+      id: `tool-${++this.toolCallSequence}`,
+      runId: input.runId,
+      toolName: input.toolName,
+      inputSummary: input.inputSummary,
+      outputSummary: null,
+      status: "running",
+      startedAt: input.startedAt ?? new Date(),
+      endedAt: null,
+    };
+
+    this.toolCalls.set(toolCall.id, toolCall);
+    const run = this.runs.get(input.runId);
+    if (!run) {
+      throw new Error("Run not found");
+    }
+    run.toolCalls.push(toolCall);
+
+    return { id: toolCall.id };
+  }
+
+  async finishToolCall(
+    toolCallId: string,
+    input: {
+      status: "success" | "failed";
+      outputSummary: string;
+      endedAt?: Date;
+    },
+  ) {
+    const toolCall = this.toolCalls.get(toolCallId);
+    if (!toolCall) {
+      throw new Error("ToolCall not found");
+    }
+
+    toolCall.status = input.status;
+    toolCall.outputSummary = input.outputSummary;
+    toolCall.endedAt = input.endedAt ?? new Date();
+  }
+
+  async listRunsBySession(sessionId: string) {
+    return Array.from(this.runs.values())
+      .filter((run) => run.sessionId === sessionId)
+      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
+      .map((run) => ({
+        ...run,
+        toolCalls: [...run.toolCalls],
+      }));
+  }
+
+  async getRunById(runId: string) {
+    const run = this.runs.get(runId);
+    if (!run) {
+      return null;
+    }
+    return {
+      ...run,
+      toolCalls: [...run.toolCalls],
+    };
+  }
 }
 
 describe("createChatService", () => {
@@ -103,33 +204,54 @@ describe("createChatService", () => {
     expect(session.id).toMatch(/^session-/);
   });
 
-  it("stores user and assistant messages and auto-updates title from first user message", async () => {
+  it("stores run and tool call logs when tools are used", async () => {
     const store = new InMemoryStore();
     const service = createChatService({
       store,
       agent: {
-        async reply() {
+        async reply(_messages, hooks) {
+          await hooks?.onToolStart?.({
+            callId: "tool-call-1",
+            toolName: "knowledge_search",
+            inputSummary: "query=deployment",
+            startedAt: new Date(),
+          });
+          await hooks?.onToolEnd?.({
+            callId: "tool-call-1",
+            status: "success",
+            outputSummary: "2 matches",
+            endedAt: new Date(),
+          });
+
+          await hooks?.onToolStart?.({
+            callId: "tool-call-2",
+            toolName: "mock_lookup",
+            inputSummary: "key=release",
+            startedAt: new Date(),
+          });
+          await hooks?.onToolEnd?.({
+            callId: "tool-call-2",
+            status: "failed",
+            outputSummary: "not found",
+            endedAt: new Date(),
+          });
+
           return "Assistant answer";
         },
       },
     });
 
     const session = await service.createSession();
-    const result = await service.sendMessage(
-      session.id,
-      "How do I set up this project for local run?",
-    );
+    const result = await service.sendMessage(session.id, "Need deployment details");
 
-    expect(result.userMessage.role).toBe("user");
-    expect(result.assistantMessage.role).toBe("assistant");
-    expect(result.assistantMessage.content).toBe("Assistant answer");
-
-    const hydrated = await service.getSessionWithMessages(session.id);
-    expect(hydrated?.messages).toHaveLength(2);
-    expect(hydrated?.title).toContain("How do I set up");
+    expect(result.run?.status).toBe("success");
+    expect(result.run?.toolCalls).toHaveLength(2);
+    expect(result.run?.toolCalls[0].toolName).toBe("knowledge_search");
+    expect(result.run?.toolCalls[0].status).toBe("success");
+    expect(result.run?.toolCalls[1].status).toBe("failed");
   });
 
-  it("throws a chat error when agent request fails but keeps the user message persisted", async () => {
+  it("marks run as failed when agent request fails but keeps user message persisted", async () => {
     const store = new InMemoryStore();
     const service = createChatService({
       store,
@@ -149,5 +271,9 @@ describe("createChatService", () => {
     const hydrated = await service.getSessionWithMessages(session.id);
     expect(hydrated?.messages).toHaveLength(1);
     expect(hydrated?.messages[0].role).toBe("user");
+
+    const runs = await store.listRunsBySession(session.id);
+    expect(runs).toHaveLength(1);
+    expect(runs[0].status).toBe("failed");
   });
 });

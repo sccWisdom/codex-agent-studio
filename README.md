@@ -2,7 +2,7 @@
 
 Web-based AI agent workspace following `SPEC.md`.
 
-Current progress: Milestone 2 chat loop is implemented.
+Current progress: Milestone 3 tool-call visualization is implemented.
 
 ## Stack
 
@@ -39,15 +39,23 @@ npm run dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-## Chat Milestone Capabilities
+## Milestone 3 Capabilities
 
-- Create sessions
-- Browse session list
-- Open `/chat/[sessionId]` to continue conversation
-- Send messages and get agent replies from OpenAI Responses API
-- Persist sessions and messages in SQLite
-- Restore history after page refresh
-- Show user-visible errors for API and agent failures
+- Session-based multi-turn chat with persistence
+- Single-agent response generation through OpenAI Responses API
+- Three registered MVP tools:
+  - `knowledge_search`
+  - `extract_structured_items`
+  - `mock_data_lookup`
+- Run-level logging for each message request
+- Tool-call logging with:
+  - tool name
+  - status
+  - input summary
+  - output summary
+  - started time
+  - ended time
+- Tool trace panel in `/chat/[sessionId]` for success and failure visibility
 
 ## Validation Commands
 

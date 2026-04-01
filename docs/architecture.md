@@ -3,32 +3,35 @@
 ## Layering
 
 1. Presentation layer: `app/`, `components/`, `features/`
-2. Application layer: `lib/chat/`, `lib/agent/`
+2. Application layer: `lib/chat/`, `lib/agent/`, `lib/tools/`
 3. Persistence layer: `lib/db/`, `prisma/`
 
-## Milestone 2 Chat Loop
+## Milestone 3 Tool Visualization
 
-### Core modules
+### Core flow
 
-- `lib/chat/chat-service.ts`: chat orchestration (session create/list, message send, title update)
-- `lib/chat/prisma-chat-store.ts`: database persistence for sessions and messages
-- `lib/agent/responses-agent.ts`: single-agent OpenAI Responses API caller
+1. User sends a message in `/chat/[sessionId]`
+2. Backend creates a `Run` record with `running` status
+3. Agent calls OpenAI Responses API with registered tools
+4. Every tool call is logged in `ToolCall` with start/end timestamps and summaries
+5. Run status is finalized as `success` or `failed`
+6. Frontend renders run/tool trace in the right-side panel
 
-### API routes
+### Registered tools
 
-- `GET /api/chat/sessions`
-- `POST /api/chat/sessions`
-- `GET /api/chat/sessions/[sessionId]`
+- `knowledge_search`: search uploaded knowledge sources by text query
+- `extract_structured_items`: extract summary and list from input text
+- `mock_data_lookup`: safe mock key-value lookup for demo-only queries
+
+### API routes involved
+
 - `POST /api/chat/sessions/[sessionId]/messages`
-
-### UI routes
-
-- `/chat`: session list and empty state
-- `/chat/[sessionId]`: session list + messages + input box + status panel
+- `GET /api/chat/sessions`
+- `GET /api/chat/sessions/[sessionId]`
 
 ## Scope boundary
 
 - Single agent only
 - No multi-agent orchestration
 - No permission system
-- Tool call visualization remains Milestone 3
+- Tool approval workflow deferred to later milestones

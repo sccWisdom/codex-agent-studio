@@ -30,7 +30,7 @@ export default async function ChatPage() {
         <div className="grid gap-4 lg:grid-cols-[280px,1fr,300px]">
           <SessionList sessions={sessions} />
           <ChatEmptyState />
-          <ChatStatusPanel status="idle" />
+          <ChatStatusPanel status="idle" runs={[]} />
         </div>
       </div>
     </AppShell>

@@ -57,6 +57,7 @@ export async function POST(request: Request, context: RouteContext) {
         {
           error: `Agent failed to reply: ${error.message}`,
           userMessage: error.userMessage,
+          run: error.run,
         },
         { status: 502 },
       );
