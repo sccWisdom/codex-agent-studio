@@ -1,14 +1,15 @@
-﻿import OpenAI from "openai";
+import OpenAI from "openai";
 import {
   type AgentInputMessage,
   type ChatAgent,
   type ToolLifecycleHooks,
 } from "@/lib/chat/chat-service";
+import {
+  DEFAULT_AGENT_MODEL,
+  DEFAULT_AGENT_SYSTEM_PROMPT,
+  getAgentSettings,
+} from "@/lib/settings/app-settings";
 import { getRegisteredTools } from "@/lib/tools/registered-tools";
-
-const DEFAULT_MODEL = "gpt-4o-mini";
-const DEFAULT_SYSTEM_PROMPT =
-  "You are Studio Assistant Agent. Use tools only when needed, prioritize knowledge_search for uploaded-document questions, and never fabricate tool results.";
 
 function mapToInput(messages: AgentInputMessage[]) {
   return messages.map((item) => ({
@@ -26,9 +27,6 @@ function truncate(text: string, max = 180): string {
 }
 
 export function createResponsesAgent(): ChatAgent {
-  const tools = getRegisteredTools();
-  const toolMap = new Map(tools.map((tool) => [tool.name, tool]));
-
   return {
     async reply(messages: AgentInputMessage[], hooks?: ToolLifecycleHooks) {
       const apiKey = process.env.OPENAI_API_KEY;
@@ -36,8 +34,12 @@ export function createResponsesAgent(): ChatAgent {
         throw new Error("OPENAI_API_KEY is not configured.");
       }
 
-      const client = new OpenAI({ apiKey });
-      const model = process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
+      const settings = await getAgentSettings();
+      const model = settings.model || DEFAULT_AGENT_MODEL;
+      const systemPrompt = settings.systemPrompt || DEFAULT_AGENT_SYSTEM_PROMPT;
+
+      const tools = getRegisteredTools().filter((tool) => settings.toolEnabled[tool.name] !== false);
+      const toolMap = new Map(tools.map((tool) => [tool.name, tool]));
 
       const openAiTools = tools.map((tool) => ({
         type: "function" as const,
@@ -47,16 +49,18 @@ export function createResponsesAgent(): ChatAgent {
         strict: false,
       }));
 
+      const client = new OpenAI({ apiKey });
+
       let response = await client.responses.create({
         model,
         input: [
           {
             role: "system",
-            content: process.env.OPENAI_SYSTEM_PROMPT ?? DEFAULT_SYSTEM_PROMPT,
+            content: systemPrompt,
           },
           ...mapToInput(messages),
         ],
-        tools: openAiTools,
+        ...(openAiTools.length > 0 ? { tools: openAiTools } : {}),
       });
 
       for (let step = 0; step < 8; step += 1) {
@@ -154,7 +158,7 @@ export function createResponsesAgent(): ChatAgent {
           model,
           previous_response_id: response.id,
           input: toolOutputs,
-          tools: openAiTools,
+          ...(openAiTools.length > 0 ? { tools: openAiTools } : {}),
         });
       }
 
@@ -167,4 +171,3 @@ export function createResponsesAgent(): ChatAgent {
     },
   };
 }
-

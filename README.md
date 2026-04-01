@@ -1,8 +1,8 @@
-﻿# Codex Agent Studio
+# Codex Agent Studio
 
 Web-based AI agent workspace following `SPEC.md`.
 
-Current progress: Milestone 4 knowledge management is implemented.
+Current progress: Milestone 5 settings and run history is implemented.
 
 ## Stack
 
@@ -39,17 +39,26 @@ npm run dev
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-## Milestone 4 Capabilities
+## Milestone 5 Capabilities
 
 - Session-based multi-turn chat with persistence
 - Single-agent response generation through OpenAI Responses API
-- Tool-call visualization with run and tool logs in `/chat/[sessionId]`
+- Tool-call visualization in chat run status panel
 - Knowledge management in `/knowledge`:
   - upload `.txt` / `.md`
   - list knowledge sources
   - delete a source
   - run retrieval test
-- Shared knowledge retrieval path between page test and agent tool (`knowledge_search`)
+- Run history workspace in `/runs`:
+  - historical run list
+  - run detail panel
+  - run and tool call association
+  - visible failure states
+- Settings workspace in `/settings`:
+  - model configuration
+  - system prompt configuration
+  - tool enable/disable switches
+  - changes stored in `AppSetting` and applied to new chat requests
 
 ## Validation Commands
 

@@ -1,6 +1,6 @@
-﻿import { AppShell } from "@/components/layout/app-shell";
+import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { SettingsPanelPlaceholder } from "@/features/settings/components/settings-panel-placeholder";
+import { SettingsPanel } from "@/features/settings/components/settings-panel";
 
 export default function SettingsPage() {
   return (
@@ -8,9 +8,9 @@ export default function SettingsPage() {
       <div className="space-y-4">
         <PageHeader
           title="Settings"
-          description="Model options, system prompt, tool switches, and response style settings will be added in Milestone 5."
+          description="Configure model, system prompt, and tool switches for future requests."
         />
-        <SettingsPanelPlaceholder />
+        <SettingsPanel />
       </div>
     </AppShell>
   );
