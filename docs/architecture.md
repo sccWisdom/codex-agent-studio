@@ -1,24 +1,34 @@
 ﻿# Architecture (MVP)
 
-## 分层
+## Layering
 
-1. 前端展示层：`app/`, `components/`, `features/`
-2. 应用服务层：后续在 `lib/` 中按域扩展
-3. Agent 执行层：后续落地在 `lib/agent/`
-4. 数据持久层：`prisma/`, `lib/db/`
+1. Presentation layer: `app/`, `components/`, `features/`
+2. Application layer: `lib/chat/`, `lib/agent/`
+3. Persistence layer: `lib/db/`, `prisma/`
 
-## 目录约定
+## Milestone 2 Chat Loop
 
-- `app/`: 路由与页面
-- `components/`: 通用 UI 与布局
-- `features/`: 领域页面模块
-- `lib/`: 配置、数据库、工具、Agent、校验等
-- `prisma/`: 数据模型与迁移
-- `tests/`: 自动化测试
+### Core modules
 
-## 初始化阶段边界
+- `lib/chat/chat-service.ts`: chat orchestration (session create/list, message send, title update)
+- `lib/chat/prisma-chat-store.ts`: database persistence for sessions and messages
+- `lib/agent/responses-agent.ts`: single-agent OpenAI Responses API caller
 
-- 只做可运行骨架与基础目录分层
-- 不提前实现业务逻辑闭环
-- 所有后续功能按 `SPEC.md` 里程碑推进
+### API routes
 
+- `GET /api/chat/sessions`
+- `POST /api/chat/sessions`
+- `GET /api/chat/sessions/[sessionId]`
+- `POST /api/chat/sessions/[sessionId]/messages`
+
+### UI routes
+
+- `/chat`: session list and empty state
+- `/chat/[sessionId]`: session list + messages + input box + status panel
+
+## Scope boundary
+
+- Single agent only
+- No multi-agent orchestration
+- No permission system
+- Tool call visualization remains Milestone 3

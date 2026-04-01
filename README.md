@@ -1,72 +1,58 @@
 ﻿# Codex Agent Studio
 
-基于 `SPEC.md` 的 Web 端 AI Agent 工作台（MVP 路线）。
+Web-based AI agent workspace following `SPEC.md`.
 
-当前进度：`Milestone 1 / 项目初始化` 已完成。
+Current progress: Milestone 2 chat loop is implemented.
 
-## 技术栈
+## Stack
 
 - Next.js + TypeScript
-- Tailwind CSS + shadcn/ui（基础配置）
-- Prisma + SQLite（本地开发）
+- Tailwind CSS + shadcn/ui base setup
+- Prisma + SQLite
+- OpenAI Responses API (single agent)
 
-## 快速启动
+## Quick Start
 
-1. 安装依赖
+1. Install dependencies
 
 ```bash
 npm install
 ```
 
-2. 准备环境变量
+2. Prepare env file
 
 ```bash
 copy .env.example .env
 ```
 
-3. 初始化数据库（生成 Prisma Client + 本地 SQLite）
+3. Initialize database
 
 ```bash
-npx prisma migrate dev --name init
+npx prisma db push
 ```
 
-4. 启动开发服务
+4. Run dev server
 
 ```bash
 npm run dev
 ```
 
-打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)。
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-## 可用页面（初始化阶段）
+## Chat Milestone Capabilities
 
-- `/` 首页
-- `/chat` 聊天主入口（占位）
-- `/chat/[sessionId]` 会话详情（占位）
-- `/knowledge` 知识页（占位）
-- `/runs` 运行记录页（占位）
-- `/settings` 设置页（占位）
+- Create sessions
+- Browse session list
+- Open `/chat/[sessionId]` to continue conversation
+- Send messages and get agent replies from OpenAI Responses API
+- Persist sessions and messages in SQLite
+- Restore history after page refresh
+- Show user-visible errors for API and agent failures
 
-## 数据模型（MVP 基础）
-
-已在 Prisma 中建模：
-
-- `Session`
-- `Message`
-- `Run`
-- `ToolCall`
-- `KnowledgeSource`
-- `AppSetting`
-
-## 校验命令
+## Validation Commands
 
 ```bash
 npm run lint
-npm run build
 npm run test
+npm run build
 ```
-
-## 下一里程碑
-
-`Milestone 2`：聊天闭环（会话创建、消息发送、Agent 调用、结果回显、历史持久化）。
-
