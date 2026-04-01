@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  title     String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+  runs      Run[]
+
+  @@index([updatedAt])
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  sessionId    String
+  role         String
+  content      String
+  createdAt    DateTime @default(now())
+  session      Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  runsAsPrompt Run[]    @relation("RunPromptMessage")
+
+  @@index([sessionId, createdAt])
+}
+
+model Run {
+  id            String     @id @default(cuid())
+  sessionId     String
+  userMessageId String?
+  status        String     @default("running")
+  startedAt     DateTime   @default(now())
+  endedAt       DateTime?
+  errorMessage  String?
+  session       Session    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userMessage   Message?   @relation("RunPromptMessage", fields: [userMessageId], references: [id], onDelete: SetNull)
+  toolCalls     ToolCall[]
+
+  @@index([sessionId, startedAt])
+  @@index([status])
+}
+
+model ToolCall {
+  id            String   @id @default(cuid())
+  runId         String
+  toolName      String
+  inputSummary  String
+  outputSummary String?
+  status        String   @default("running")
+  startedAt     DateTime @default(now())
+  endedAt       DateTime?
+  run           Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, startedAt])
+}
+
+model KnowledgeSource {
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  content   String?
+  path      String?
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
