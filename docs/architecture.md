@@ -3,35 +3,37 @@
 ## Layering
 
 1. Presentation layer: `app/`, `components/`, `features/`
-2. Application layer: `lib/chat/`, `lib/agent/`, `lib/tools/`
+2. Application layer: `lib/chat/`, `lib/agent/`, `lib/tools/`, `lib/knowledge/`
 3. Persistence layer: `lib/db/`, `prisma/`
 
-## Milestone 3 Tool Visualization
+## Milestone 4 Knowledge Loop
 
-### Core flow
+### Data storage
 
-1. User sends a message in `/chat/[sessionId]`
-2. Backend creates a `Run` record with `running` status
-3. Agent calls OpenAI Responses API with registered tools
-4. Every tool call is logged in `ToolCall` with start/end timestamps and summaries
-5. Run status is finalized as `success` or `failed`
-6. Frontend renders run/tool trace in the right-side panel
+- Store uploaded knowledge in `KnowledgeSource` (SQLite via Prisma)
+- Use fields: `id`, `name`, `type`, `content`, `status`, `createdAt`
+- Keep retrieval simple with text matching (`contains`) for MVP
 
-### Registered tools
+### Knowledge flow
 
-- `knowledge_search`: search uploaded knowledge sources by text query
-- `extract_structured_items`: extract summary and list from input text
-- `mock_data_lookup`: safe mock key-value lookup for demo-only queries
+1. User uploads `.txt` or `.md` in `/knowledge`
+2. Backend validates type and content, then persists source
+3. Retrieval test calls `/api/knowledge/search`
+4. API executes the same `knowledge_search` tool used by agent runtime
+5. Chat runtime can call `knowledge_search` through Responses API tool calls
 
-### API routes involved
+### Key routes
 
+- `GET /api/knowledge`
+- `POST /api/knowledge`
+- `DELETE /api/knowledge/[sourceId]`
+- `POST /api/knowledge/search`
 - `POST /api/chat/sessions/[sessionId]/messages`
-- `GET /api/chat/sessions`
-- `GET /api/chat/sessions/[sessionId]`
 
 ## Scope boundary
 
 - Single agent only
+- No vector database
 - No multi-agent orchestration
 - No permission system
 - Tool approval workflow deferred to later milestones

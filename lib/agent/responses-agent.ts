@@ -8,7 +8,7 @@ import { getRegisteredTools } from "@/lib/tools/registered-tools";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 const DEFAULT_SYSTEM_PROMPT =
-  "You are Studio Assistant Agent. Use tools only when needed, and never fabricate tool results.";
+  "You are Studio Assistant Agent. Use tools only when needed, prioritize knowledge_search for uploaded-document questions, and never fabricate tool results.";
 
 function mapToInput(messages: AgentInputMessage[]) {
   return messages.map((item) => ({
@@ -167,3 +167,4 @@ export function createResponsesAgent(): ChatAgent {
     },
   };
 }
+
